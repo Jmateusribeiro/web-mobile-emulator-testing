@@ -30,9 +30,10 @@ python_functions = ["test_*"]
 
 # Default options
 addopts = [
-    "-v",                           # Verbose (not -vv to reduce noise)
+    "-v",
     "--html=reports/report.html",
     "--self-contained-html",
+    "--css=reports/assets/style.css",
     "--strict-markers",
     "--Browser=Chrome",
     "--driver=Chrome",
@@ -40,7 +41,7 @@ addopts = [
 
 # Filter warnings
 filterwarnings = [
-    "ignore::DeprecationWarning:pytest_selenium",  # Suppress pytest-selenium deprecation warnings
+    "ignore::DeprecationWarning:pytest_selenium",
 ]
 
 # Test markers

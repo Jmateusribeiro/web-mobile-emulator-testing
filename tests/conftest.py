@@ -2,7 +2,6 @@
 conftest module - Using pytest-selenium built-in features
 """
 import os
-import base64
 import pytest
 from selenium import webdriver
 from selenium.common.exceptions import WebDriverException
@@ -155,12 +154,10 @@ def pytest_html_report_title(report):
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_makereport(item):
     """
-    Hook to customize HTML report with browser logs and custom screenshots.
+    Hook to customize HTML report with browser logs and screenshots as links.
 
-    pytest-selenium automatically captures failure screenshots, so this hook:
-    - Filters out verbose logs to keep reports clean
-    - Adds browser console logs on failure
-    - Attaches custom evidence screenshots on test pass
+    This hook modifies both failure and success screenshots to be clickable links
+    instead of embedded images for better viewing of full-resolution screenshots.
 
     Args:
         item: pytest test item.
@@ -178,7 +175,7 @@ def pytest_runtest_makereport(item):
 
         if driver:
             if report.failed:
-                # Just add browser console logs for debugging
+                # Add browser console logs for debugging
                 try:
                     logs = driver.get_log('browser')
                     if logs:
@@ -189,7 +186,7 @@ def pytest_runtest_makereport(item):
                     pass
 
             elif report.passed:
-                # Attach custom evidence screenshots saved during test execution
+                # Attach custom evidence screenshots as clickable links
                 try:
                     if os.path.exists(SCREENSHOT_PATH):
                         screenshot_files = sorted([
@@ -198,11 +195,11 @@ def pytest_runtest_makereport(item):
                         ])
 
                         for screenshot_file in screenshot_files:
-                            filepath = os.path.join(SCREENSHOT_PATH, screenshot_file)
-                            with open(filepath, 'rb') as f:
-                                screenshot_data = base64.b64encode(f.read()).decode()
-                                label = screenshot_file.replace('.png', '').replace('_', ' ').title()
-                                extras_list.append(extras.image(screenshot_data, label, mime_type="image/png"))
+                            # Create relative path from report to screenshot
+                            relative_path = os.path.join('evidences', screenshot_file)
+                            label = screenshot_file.replace('.png', '').replace('_', ' ').title()
+                            link_html = f'<a href="{relative_path}" target="_blank">{label} (click to view full screenshot)</a>'
+                            extras_list.append(extras.html(link_html))
                 except (OSError, IOError):
                     # If evidence folder doesn't exist or can't be read, skip custom screenshots
                     pass

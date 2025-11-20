@@ -1,0 +1,29 @@
+/* Custom CSS for pytest-html report */
+/* Fix screenshot display - show full screenshots with scroll */
+
+.media-container__viewport img,
+.media-container__viewport video {
+  object-fit: contain !important;  /* Show full image without cropping */
+  width: auto !important;           /* Allow original width */
+  max-width: 100%;                  /* Don't exceed container width */
+  height: auto !important;          /* Allow original height */
+  max-height: none !important;      /* Remove height restriction */
+}
+
+/* Add scrollable container for full screenshots */
+.media-container {
+  height: 800px !important;         /* Fixed height for scrollable area */
+  max-height: 800px !important;     /* Maximum height */
+  overflow-y: auto !important;      /* Enable vertical scrolling */
+  overflow-x: hidden !important;    /* Hide horizontal scroll */
+  align-items: start !important;    /* Align to top, not center */
+  display: grid !important;         /* Maintain grid layout */
+}
+
+/* Allow viewport to show full content with scroll */
+.media-container__viewport {
+  height: 100% !important;          /* Fill container height */
+  overflow-y: auto !important;      /* Enable scrolling in viewport */
+  overflow-x: hidden !important;    /* Hide horizontal scroll */
+  text-align: center;               /* Center image horizontally */
+}
