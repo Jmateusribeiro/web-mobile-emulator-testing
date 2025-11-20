@@ -1,22 +1,23 @@
 """
-conftest module - Simplified to use pytest-selenium built-in features
+conftest module - Using pytest-selenium built-in features
 """
 import os
 import base64
 import pytest
 from selenium import webdriver
+from selenium.common.exceptions import WebDriverException
 from pytest_html import extras
 from pages.home_page import HomePage
 from pages.search_page import SearchPage
 from pages.stream_page import StreamPage
-from config.settings import SUPPORTED_BROWSERS, BASE_URL, SCREENSHOT_PATH
-from config.browser_config import create_driver
+from config.settings import BASE_URL, SCREENSHOT_PATH
+from config.browser_config import get_chrome_mobile_options, get_edge_mobile_options
 from config.device_profiles import DEFAULT_DEVICE
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
     """
-    Add custom command-line option for pytest.
+    Add custom command-line options for pytest.
 
     Args:
         parser (pytest.Parser): The pytest parser object.
@@ -25,6 +26,21 @@ def pytest_addoption(parser: pytest.Parser) -> None:
                      action="store",
                      default="Chrome",
                      help="browser to run the test")
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    """
+    Configure pytest with custom metadata and sync pytest-selenium's --driver with --Browser.
+
+    Args:
+        config (pytest.Config): Pytest configuration object.
+    """
+
+    browser = config.getoption('--Browser')
+    driver = config.getoption('--driver', default=None)
+
+    if driver is None:
+        config.option.driver = browser
 
 
 @pytest.fixture(name='browser')
@@ -41,27 +57,45 @@ def get_browser(request: pytest.FixtureRequest) -> str:
     return request.config.getoption('--Browser')
 
 
-@pytest.fixture(name='driver', scope='function')
-def get_driver(request: pytest.FixtureRequest, browser: str):
+@pytest.fixture
+def chrome_options():
     """
-    Fixture to create and manage WebDriver instance.
-    pytest-selenium will automatically capture screenshots on failure.
+    Fixture to provide Chrome options with mobile emulation.
+    pytest-selenium automatically uses this for Chrome driver.
+
+    Returns:
+        ChromeOptions: Chrome options with mobile emulation configured.
+    """
+    return get_chrome_mobile_options()
+
+
+@pytest.fixture
+def edge_options():
+    """
+    Fixture to provide Edge options with mobile emulation.
+    pytest-selenium automatically uses this for Edge driver.
+
+    Returns:
+        EdgeOptions: Edge options with mobile emulation configured.
+    """
+    return get_edge_mobile_options()
+
+
+@pytest.fixture(name='driver')
+def get_driver(selenium):
+    """
+    Alias fixture for pytest-selenium's selenium fixture.
+
+    This provides a 'driver' name for compatibility with existing page object fixtures,
+    while letting pytest-selenium handle the actual driver creation with chrome_options/edge_options.
 
     Args:
-        request (pytest.FixtureRequest): The pytest fixture request object.
-        browser (str): The selected browser.
+        selenium: pytest-selenium's built-in selenium fixture.
 
-    Yields:
-        WebDriver: Selenium WebDriver instance.
+    Returns:
+        WebDriver: Selenium WebDriver instance managed by pytest-selenium.
     """
-    if browser not in SUPPORTED_BROWSERS:
-        raise Exception(f"Browser '{browser}' not supported; supported Browsers: {SUPPORTED_BROWSERS}")
-    
-    driver = create_driver(browser)
-    
-    yield driver
-    
-    driver.quit()
+    return selenium
 
 
 @pytest.fixture(name='home_page')
@@ -108,81 +142,69 @@ def get_stream_page(driver: webdriver.Remote) -> StreamPage:
 
 # ========== pytest-html customization ==========
 
-def pytest_configure(config: pytest.Config) -> None:
+def pytest_html_report_title(report):
     """
-    Configure pytest with custom metadata for HTML reports.
+    Customize the HTML report title.
 
     Args:
-        config (pytest.Config): Pytest configuration object.
+        report: The HTML report object.
     """
-    config._metadata = {
-        'Browser': config.getoption('--Browser'),
-        'Base URL': BASE_URL,
-        'Test Device': DEFAULT_DEVICE.name,
-        'Device Resolution': f"{DEFAULT_DEVICE.width}x{DEFAULT_DEVICE.height}",
-        'Pixel Ratio': DEFAULT_DEVICE.pixel_ratio
-    }
+    report.title = "Twitch Mobile Test Report"
 
 
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_makereport(item):
     """
-    Hook to attach screenshots and browser logs to HTML report.
-    Filters out verbose logs and captures failure screenshots.
+    Hook to customize HTML report with browser logs and custom screenshots.
+
+    pytest-selenium automatically captures failure screenshots, so this hook:
+    - Filters out verbose logs to keep reports clean
+    - Adds browser console logs on failure
+    - Attaches custom evidence screenshots on test pass
 
     Args:
         item: pytest test item.
     """
     outcome = yield
     report = outcome.get_result()
-    
-    # Filter out verbose logs from the report
+
     if hasattr(report, 'sections'):
-        # Remove all captured logs, stdout, stderr from the report
         report.sections = []
-    
-    # Use 'extras' instead of deprecated 'extra'
+
     extras_list = getattr(report, "extras", [])
-    
+
     if report.when == "call":
         driver = item.funcargs.get('driver')
-        
+
         if driver:
             if report.failed:
-                # Capture failure screenshot
-                screenshot = driver.get_screenshot_as_base64()
-                extras_list.append(extras.image(screenshot, "Failure Screenshot", mime_type="image/png"))
-                
-                # Capture browser console logs (only last 10)
+                # Just add browser console logs for debugging
                 try:
                     logs = driver.get_log('browser')
                     if logs:
-                        log_text = '\n'.join([f"[{log['level']}] {log['message']}" for log in logs[-10:]])
+                        log_text = '\n'.join([f"[{log['level']}] {log['message']}" for log in logs[-20:]])
                         extras_list.append(extras.text(log_text, "Browser Console Logs"))
-                except:
+                except (WebDriverException, KeyError):
+                    # Some drivers don't support log retrieval
                     pass
+
             elif report.passed:
-                # Include all screenshots from evidences folder for passed tests
+                # Attach custom evidence screenshots saved during test execution
                 try:
                     if os.path.exists(SCREENSHOT_PATH):
-                        # Get all PNG files from evidences folder
                         screenshot_files = sorted([
-                            f for f in os.listdir(SCREENSHOT_PATH) 
+                            f for f in os.listdir(SCREENSHOT_PATH)
                             if f.endswith('.png')
                         ])
-                        
-                        if screenshot_files:
-                            # Add each screenshot to the report
-                            for screenshot_file in screenshot_files:
-                                filepath = os.path.join(SCREENSHOT_PATH, screenshot_file)
-                                with open(filepath, 'rb') as f:
-                                    screenshot_data = base64.b64encode(f.read()).decode()
-                                    # Use filename as label
-                                    label = screenshot_file.replace('.png', '').replace('_', ' ').title()
-                                    extras_list.append(extras.image(screenshot_data, label, mime_type="image/png"))
-                except Exception as e:
-                    # If anything fails, take a final screenshot as fallback
-                    screenshot = driver.get_screenshot_as_base64()
-                    extras_list.append(extras.image(screenshot, "Test Passed Screenshot", mime_type="image/png"))
-    
+
+                        for screenshot_file in screenshot_files:
+                            filepath = os.path.join(SCREENSHOT_PATH, screenshot_file)
+                            with open(filepath, 'rb') as f:
+                                screenshot_data = base64.b64encode(f.read()).decode()
+                                label = screenshot_file.replace('.png', '').replace('_', ' ').title()
+                                extras_list.append(extras.image(screenshot_data, label, mime_type="image/png"))
+                except (OSError, IOError):
+                    # If evidence folder doesn't exist or can't be read, skip custom screenshots
+                    pass
+
     report.extras = extras_list

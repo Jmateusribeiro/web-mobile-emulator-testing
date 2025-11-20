@@ -9,7 +9,11 @@ from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.common.keys import Keys
-from selenium.common.exceptions import NoSuchElementException, TimeoutException
+from selenium.common.exceptions import (
+    NoSuchElementException, 
+    ElementClickInterceptedException, 
+    TimeoutException
+)
 from selenium.webdriver.common.by import By
 from config.settings import SCREENSHOT_PATH, DEFAULT_WAIT_TIMEOUT
 
@@ -96,6 +100,27 @@ class BasePage:
         )
         element.click()
         self.logger.info(f"Successfully clicked element: {by_locator}")
+    
+    def click_web_element(self, element: WebElement) -> None:
+        """
+            Click a WebElement that's already been found
+
+            Args:
+                element (WebElement): The web element to click.
+
+            Returns:
+                None    
+        """
+        self.logger.info(f"Clicking element: {element}")
+        
+        WebDriverWait(self.driver, self.implicit_wait).until(
+            lambda d: element.is_displayed() and element.is_enabled()
+        )
+        element.click()
+
+        self.logger.info(f"Successfully clicked element: {element}")
+   
+
 
     def send_keys(self, by_locator: tuple[By, str], key: str | Keys) -> None:
         """

@@ -35,6 +35,12 @@ addopts = [
     "--self-contained-html",
     "--strict-markers",
     "--Browser=Chrome",
+    "--driver=Chrome",
+]
+
+# Filter warnings
+filterwarnings = [
+    "ignore::DeprecationWarning:pytest_selenium",  # Suppress pytest-selenium deprecation warnings
 ]
 
 # Test markers

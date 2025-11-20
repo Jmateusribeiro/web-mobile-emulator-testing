@@ -59,29 +59,3 @@ def get_headless_chrome_options() -> ChromeOptions:
     chrome_options.add_argument("--no-sandbox")
     
     return chrome_options
-
-
-def create_driver(browser_name: str) -> Union[webdriver.Chrome, webdriver.Edge]:
-    """
-    Create and return a WebDriver instance based on browser name.
-
-    Args:
-        browser_name (str): Name of the browser ('Chrome', 'Edge', 'Headless Chrome').
-
-    Returns:
-        Union[webdriver.Chrome, webdriver.Edge]: Configured WebDriver instance.
-
-    Raises:
-        Exception: If browser is not supported.
-    """
-    if browser_name == 'Chrome':
-        driver = webdriver.Chrome(options=get_chrome_mobile_options())
-        return driver
-    
-    if browser_name == 'Edge':
-        return webdriver.Edge(options=get_edge_mobile_options())
-    
-    #if browser_name == 'Headless Chrome':
-    #    return webdriver.Chrome(options=get_headless_chrome_options())
-    
-    raise Exception(f'Browser "{browser_name}" is not supported. Supported browsers: Chrome, Edge, Headless Chrome')

@@ -82,7 +82,7 @@ class SearchPage(BasePage):
             for channel in channels:
                 try:
                     if channel.find_element(*SearchPageLocators.live_stream_option):
-                        channel.click()
+                        self.click_web_element(channel)
                         found_stream = True
                         break
                 except NoSuchElementException:
