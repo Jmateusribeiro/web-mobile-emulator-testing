@@ -1,0 +1,5 @@
+Selenium>=4.26.0
+pytest>=8.3.0
+pytest-html>=4.1.0
+pytest-xdist>=3.6.0
+python-dotenv>=1.0.0
